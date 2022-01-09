@@ -148,6 +148,7 @@ pub mod core;
 
 pub mod contrib;
 pub mod draw;
+pub mod v3;
 
 #[cfg(feature = "xcb")]
 pub mod xcb;
