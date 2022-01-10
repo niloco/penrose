@@ -36,7 +36,11 @@ where
 
             w.focused = index;
 
-            run_hook(HookTrigger::WorkspaceChange(active, index));
+            run_hook(HookTrigger::WorkspaceChange {
+                prev: active,
+                new: index,
+            });
+
             return Ok(());
         }
     }
@@ -60,7 +64,10 @@ where
     };
 
     w.focused = index;
-    run_hook(HookTrigger::WorkspaceChange(active, index));
+    run_hook(HookTrigger::WorkspaceChange {
+        prev: active,
+        new: index,
+    });
 
     Ok(())
 }

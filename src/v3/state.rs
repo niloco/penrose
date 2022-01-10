@@ -7,7 +7,7 @@ use std::{
 };
 
 #[derive(Debug)]
-pub(crate) struct WmState {
+pub(crate) struct State {
     pub config: Config,
     pub clients: Clients,
     pub screens: Screens,

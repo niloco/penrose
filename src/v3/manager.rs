@@ -3,7 +3,7 @@ use crate::v3::{
     actions,
     bindings::{KeyBindings, MouseBindings},
     config::Config,
-    state::WmState,
+    state::State,
     xconnection::XConn,
     Error, ErrorHandler, Result,
 };
@@ -29,10 +29,9 @@ use nix::sys::signal::{signal, SigHandler, Signal};
 /// [1]: https://github.com/sminez/penrose/tree/develop/examples
 #[derive(Debug)]
 pub struct WindowManager<X: XConn> {
-    c: Config,
     x: X,
-    s: WmState,
-    running: bool,
+    c: Config,
+    s: State,
 }
 
 impl<X: XConn> WindowManager<X> {
@@ -55,6 +54,8 @@ impl<X: XConn> WindowManager<X> {
         mut mouse_bindings: MouseBindings,
         error_handler: ErrorHandler,
     ) -> Result<()> {
+        let WindowManager { x, c, s } = self;
+
         // ignore SIGCHILD and allow child / inherited processes to be inherited by pid1
         trace!("registering SIGCHILD signal handler");
         if let Err(e) = unsafe { signal(Signal::SIGCHLD, SigHandler::SigIgn) } {
@@ -62,33 +63,34 @@ impl<X: XConn> WindowManager<X> {
         }
 
         trace!("Initialising XConn");
-        self.x.init()?;
+        x.init()?;
 
         trace!("Attempting initial screen detection");
-        actions::screen::detect_screens(&mut self.s.screens, &self.x, self.c.workspaces.len())?;
+        actions::screen::detect_screens(&mut s.screens, &x, c.workspaces.len())?;
 
         trace!("Setting EWMH properties");
-        self.x.set_wm_properties(&self.c.workspaces)?;
+        x.set_wm_properties(&c.workspaces)?;
 
         trace!("Forcing cursor to first screen");
-        self.x.warp_cursor(None, &self.s.screens[0])?;
+        x.warp_cursor(None, &s.screens[0])?;
 
         trace!("grabbing key and mouse bindings");
-        self.x.grab_keys(&key_bindings, &mouse_bindings)?;
+        x.grab_keys(&key_bindings, &mouse_bindings)?;
 
         trace!("forcing focus to first workspace");
         self.focus_workspace(&Selector::Index(0))?;
 
         self.run_hook(HookName::Startup);
-        self.running = true;
+
+        let running = true;
 
         trace!("entering main event loop");
-        while self.running {
-            match self.x.wait_for_event() {
+        while running {
+            match x.wait_for_event() {
                 Ok(event) => {
                     trace!(details = ?event, "event details");
 
-                    let actions = process_next_event(event, &self.state, &self.x);
+                    let actions = process_next_event(event, &s, &x);
                     for action in actions {
                         if let Err(e) = self.handle_event_action(
                             action,
@@ -100,7 +102,7 @@ impl<X: XConn> WindowManager<X> {
                     }
 
                     self.run_hook(HookName::EventHandled);
-                    self.x.flush();
+                    x.flush();
                 }
 
                 Err(e) => error_handler(Error::X(e)),

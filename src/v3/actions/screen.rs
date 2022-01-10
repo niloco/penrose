@@ -30,7 +30,9 @@ where
         Ok(vec![
             Rpc::ApplyLayout { ws: None, tx: None },
             Rpc::RunHook {
-                h: HookTrigger::ScreenUpdated,
+                h: HookTrigger::ScreenUpdated {
+                    rs: screens.inner.clone(),
+                },
             },
         ])
     } else {
