@@ -3,10 +3,12 @@ use crate::v3::{
     actions,
     bindings::{KeyBindings, MouseBindings},
     config::Config,
+    event::Event,
     state::State,
     xconnection::XConn,
     Error, ErrorHandler, Result,
 };
+use crossbeam_channel::Receiver;
 use nix::sys::signal::{signal, SigHandler, Signal};
 
 /// WindowManager is the primary struct / owner of the event loop for penrose.
@@ -32,6 +34,7 @@ pub struct WindowManager<X: XConn> {
     x: X,
     c: Config,
     s: State,
+    rx: Receiver<Box<dyn Event>>,
 }
 
 impl<X: XConn> WindowManager<X> {

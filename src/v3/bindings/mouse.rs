@@ -3,7 +3,7 @@ use super::ModifierKey;
 use std::collections::HashMap;
 
 /// An action to be run in response to a mouse event
-pub type MouseEventHandler = Box<dyn FnMut(&mut WmHandle, &MouseEvent) -> Result<()>>;
+pub type MouseEventHandler = Box<dyn FnMut(WmHandle, &MouseEvent) -> Result<()>>;
 
 /// User defined mouse bindings
 pub type MouseBindings = HashMap<(MouseEventKind, MouseState), MouseEventHandler>;

@@ -426,7 +426,7 @@ pub trait XKeyboardHandler {
 /// assumed.
 #[stubbed_companion_trait(doc_hidden = "true")]
 pub trait XConn:
-    XState + XEventHandler + XClientHandler + XClientProperties + XClientConfig + Sized
+    Sync + XState + XEventHandler + XClientHandler + XClientProperties + XClientConfig + Sized
 {
     /// Hydrate this XConn to restore internal state following serde deserialization
     #[cfg(feature = "serde")]

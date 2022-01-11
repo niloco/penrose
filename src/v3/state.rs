@@ -1,6 +1,8 @@
 use crate::v3::{
-    client::Client, config::Config, data_types::Region, workspace::Workspace, xconnection::Xid,
+    client::Client, config::Config, data_types::Region, event::Event, workspace::Workspace,
+    xconnection::Xid,
 };
+use crossbeam_channel::Sender;
 use std::{
     collections::HashMap,
     ops::{Deref, DerefMut, Index, IndexMut},
@@ -12,6 +14,8 @@ pub(crate) struct State {
     pub clients: Clients,
     pub screens: Screens,
     pub workspaces: Workspaces,
+    pub running: bool,
+    pub tx: Sender<Box<dyn Event>>,
 }
 
 #[derive(Debug, Default)]

@@ -1,42 +1,59 @@
 //! Worker pool for handling events from the X server and user actions
+use crate::v3::{
+    bindings::{KeyBindings, KeyCode, MouseBindings, MouseEvent},
+    error::ErrorHandler,
+    handle::WmHandle,
+};
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use std::{fmt, thread};
 use tracing::trace;
 
-type Job = Box<dyn FnOnce() + Send + 'static>;
-
+#[derive(Debug)]
 enum Message {
-    Job(Job),
+    Key(KeyCode),
+    Mouse(MouseEvent),
     ShutDown,
 }
 
-impl fmt::Debug for Message {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Message::Job(_j) => f
-                .debug_tuple("Message::Job")
-                .field(&stringify!(_j))
-                .finish(),
-            Message::ShutDown => f.debug_tuple("Message::ShutDown").finish(),
-        }
-    }
-}
-
-#[derive(Debug)]
 struct Worker {
     id: usize,
     handle: thread::JoinHandle<()>,
 }
 
+impl fmt::Debug for Worker {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Worker").field("id", &self.id).finish()
+    }
+}
+
 impl Worker {
-    fn new(id: usize, rx: Receiver<Message>) -> Self {
+    fn new(
+        id: usize,
+        rx: Receiver<Message>,
+        h: WmHandle,
+        ks: KeyBindings,
+        ms: MouseBindings,
+        error_handler: ErrorHandler,
+    ) -> Self {
         let handle = thread::spawn(move || {
             while let Ok(m) = rx.recv() {
                 match m {
-                    Message::Job(j) => {
-                        trace!(id, "Got job");
-                        j();
+                    Message::Key(k) => {
+                        if let Some(action) = ks.get_mut(&k) {
+                            if let Err(e) = action(h.clone()) {
+                                error_handler(e);
+                            }
+                        }
                     }
+
+                    Message::Mouse(e) => {
+                        if let Some(action) = ms.get_mut(&(e.kind, e.state.clone())) {
+                            if let Err(e) = action(h.clone(), &e) {
+                                error_handler(e);
+                            }
+                        }
+                    }
+
                     Message::ShutDown => {
                         trace!(id, "Shutting down");
                         return;
@@ -62,11 +79,28 @@ impl Pool {
     /// # Panics
     ///
     /// Panics if size == 0
-    pub fn new(size: usize) -> Self {
+    pub fn new(
+        size: usize,
+        h: WmHandle,
+        ks: KeyBindings,
+        ms: MouseBindings,
+        error_handler: ErrorHandler,
+    ) -> Self {
         assert!(size > 0, "attempt to create empty worker pool");
 
         let (tx, rx) = unbounded();
-        let workers = (0..size).map(|id| Worker::new(id, rx.clone())).collect();
+        let workers = (0..size)
+            .map(|id| {
+                Worker::new(
+                    id,
+                    rx.clone(),
+                    h.clone(),
+                    ks.clone(),
+                    ms.clone(),
+                    error_handler,
+                )
+            })
+            .collect();
 
         Self { workers, tx }
     }
